@@ -68,6 +68,11 @@ Each event’s TTL is incremented upon delivery. If an event exceeds the maximum
 poetry add grpcio grpcio-tools
 ```
 
+Run it like:
+```bash
+ GRPC_VERBOSITY=debug [poetry run] python -m src.main
+ ```
+
 ---
 
 ## Architecture
