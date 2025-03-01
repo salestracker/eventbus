@@ -1,4 +1,4 @@
-from typing import Dict, List, Annotated
+from typing import Dict, List, Annotated, Optional
 from collections.abc import Mapping
 import dataclasses
 import datetime as dt
@@ -24,7 +24,7 @@ class EventRegistry:
     event_name: Annotated[str, QueueEvent.event_name]
     events: List[QueueEvent]
     # map subscriber IDs to a dictionary that maps correlation IDs to a delivery flag
-    subscribers: Dict[str, Dict[str, bool]] = {}
+    subscribers: Optional[Dict[str, Dict[str, bool]]]
 
     @staticmethod
     def create_event(**data):
