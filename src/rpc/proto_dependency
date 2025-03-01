@@ -1,0 +1,3 @@
+src/rpc/eventbus_pb2.py \
+src/rpc/eventbus_pb2.pyi \
+src/rpc/eventbus_pb2_grpc.py: src/proto/eventbus.proto

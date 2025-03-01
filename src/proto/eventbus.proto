@@ -1,0 +1,104 @@
+syntax = "proto3";
+
+// In this design, every published event is mapped to all subscribers that have registered an interest. 
+// Instead of maintaining one queue per subscriber, the EventBus service keeps a single queue whose entries are
+//  tuples (subscriber_id, event). This enables efficient broadcast, redelivery management, and scaling to hundreds of subscribers.
+
+package eventbus;
+
+message SingleValue {
+    oneof data_type {
+        string string_val = 1;
+        int32 int32_val = 2;
+        int64 int64_val = 3;
+        uint32 uint32_val = 4;
+        uint64 uint64_val = 5;
+        sint32 sint32_val = 6;
+        sint64 sint64_val = 7;
+        bool bool_val = 8;
+        bytes byte_val = 9;
+        fixed32 fixed32_val = 10;
+        fixed64 fixed64_val = 11;
+        double double_val = 12;
+        float float_val = 13;
+    }
+}
+
+message ListValue {
+    repeated string string_list = 14;
+    repeated int32 int32_list = 15;
+    repeated int64 int64_list = 16;
+    repeated uint32 uint32_list = 17;
+    repeated uint64 uint64_list = 18;
+    repeated sint32 sint32_list = 19;
+    repeated sint64 sint64_list = 20;
+    repeated bool bool_list = 21;
+    repeated bytes byte_list = 22;
+    repeated fixed32 fixed32_list = 23;
+    repeated fixed64 fixed64_list = 24;
+    repeated double double_list = 25;
+    repeated float float_list = 26;
+
+}
+
+message PayloadValue {
+    oneof value {
+        SingleValue single_datatype = 1;
+        ListValue list_datatype = 2;
+    }
+}
+
+// The Event message represents an individual event.
+// Fields:
+// - event_name: The type or name of the event (e.g. "enqueue_diagnosis").
+// - payload: A map of key/value strings containing event-specific data.
+// - correlation_id: A unique identifier to correlate related events or for retry purposes.
+// - ttl: A time-to-live counter that is updated each time the event is delivered;
+//        If it exceeds a configured maximum, the event is dropped.
+//        This is a conveience so that multiple subscribers can still access an event at a later time
+message Event {
+    string event_name = 1;
+    map<string, PayloadValue> payload = 2;
+    string correlation_id = 3;
+    fixed32 ttl = 4;
+}
+
+message EventRequest {
+    Event event = 1;
+}
+
+message ResponseType {
+    oneof response {
+        bool success = 1;
+        bool failure = 2;
+    }
+}
+
+message EventResponse {
+    oneof event_response {
+        ResponseType response = 1;
+        string error_message = 2;
+    }
+}
+
+message SubscribeEventStream {
+    string event_name = 1;
+    string subscriber_id = 2;
+}
+
+message SubscriberResponse {
+    Event event = 1;
+    string subscriber_id = 2;
+}
+
+message SubscriberStreamResponse {
+    oneof stream_response {
+        SubscriberResponse response = 1;
+        string error_message = 2;
+    }
+}
+
+service EventBus {
+    rpc PublishEvent(EventRequest) returns (EventResponse);
+    rpc SubscribeEvent(SubscribeEventStream) returns (SubscriberStreamResponse);
+}
