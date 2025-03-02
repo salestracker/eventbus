@@ -75,25 +75,21 @@ class EventBusAsync(EventBusServicer):
                 return
             registry = self._eventstore[event_name]
 
-            if subscriber_id not in registry.subscribers:
-                registry.subscribers[subscriber_id] = {
-                    event.correlation_id: False for event in registry.events
-                }
-            # Get a copy of the subscriber's event status.
-            subscriber_queue_map = dict(registry.subscribers[subscriber_id])
+            if not registry.subscribers:
+                registry.subscribers = {}
+                registry.subscribers[subscriber_id] = {}
 
-        while subscriber_id in registry.subscribers:
+            if registry.subscribers and subscriber_id not in registry.subscribers:
+                registry.create_subscriber_map(subscriber_id)
+
+        while registry.subscribers and subscriber_id in registry.subscribers:
             # Take a snapshot copy of registry.events
             # under lock and iterate over a copy.
             async with self._lock:
                 registry = self._eventstore[event_name]
-                registry_events = tuple(registry.events)
+                queue_events = registry.filter_undelivered_events(subscriber_id) or []
 
-            for queue_event in filter(
-                lambda event: not subscriber_queue_map.get(event.correlation_id),
-                registry_events,
-            ):
-                subscriber_queue_map[queue_event.correlation_id] = True
+            for queue_event in queue_events:
                 event = Event(
                     event_name=queue_event.event_name,
                     payload=queue_event.payload,
@@ -105,15 +101,14 @@ class EventBusAsync(EventBusServicer):
                         event=event, subscriber_id=subscriber_id
                     )
                 )
+                async with self._lock:
+                    registry.set_subscriber_map(subscriber_id, queue_event)
                 yield response
+
                 await self._put_queue(queue_event)
 
-            # TODO: Implement a way to flush() obsolete correlation keys
-            subscriber_queue_map = (
-                await self._update_subscriber_queue_map_from_registry(
-                    event_name, subscriber_id
-                )
-            )
+            # TODO: Implement a way to flush() obsolete
+            # correlation keys in registry.
 
     async def enqueue_to_eventstore(
         self, queue: asyncio.Queue[QueueEvent], eventstore: EVENTSTORE
@@ -136,7 +131,9 @@ class EventBusAsync(EventBusServicer):
             return
         if (event_name := queue_event.event_name) and event_name not in eventstore:
             async with self._lock:
-                eventstore[event_name] = EventRegistry(event_name=event_name, events=[])
+                eventstore[event_name] = EventRegistry(
+                    event_name=event_name, events=[], subscribers={}
+                )
         async with self._lock:
             registry = eventstore[event_name]
             registry.events += [queue_event]
@@ -146,19 +143,3 @@ class EventBusAsync(EventBusServicer):
             self._async_pub_queue.put_nowait(event)
         except asyncio.QueueFull:
             await self._async_pub_queue.put(event)
-
-    async def _update_subscriber_queue_map_from_registry(
-        self, event_name: str, subscriber_id: str
-    ) -> Dict[str, bool]:
-        async with self._lock:
-            registry = self._eventstore[event_name]
-            registry_events = tuple(registry.events)
-            subscriber_queue_map = dict(registry.subscribers[subscriber_id])
-            subscriber_queue_map.update(
-                {
-                    event.correlation_id: False
-                    for event in registry_events
-                    if event.correlation_id not in subscriber_queue_map
-                }
-            )
-        return subscriber_queue_map
