@@ -145,6 +145,8 @@ venv.bak/
 
 # mkdocs documentation
 /site
+TODO.md
+SaaS_ARCHITECTURE.md
 
 # mypy
 .mypy_cache/
