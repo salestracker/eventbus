@@ -33,6 +33,36 @@ anyio = { version = "^4.4.0", optional = true }
 pytest = { version = "^8.2.2", markers = "platform_python_implementation == 'CPython'", optional = true }
 pytest-asyncio = { version = "^0.25.2", optional = true }
 
+[tool.pytest.ini_options]
+addopts = "-ra -q"
+testpaths = [
+    "tests",
+]
+asyncio_mode = "auto"
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "api: mark api tests",
+    "unit: marks tests as unit tests",
+]
+# Add env vars when running pytest
+env = [
+    "APP_ENV=test",
+]
+
+[tool.pyright]
+useLibraryCodeForTypes = true
+verboseOutput = true
+include = [
+    "src/**/*.py",
+    "tests/**/test_*.py",
+]
+exclude = [
+    "**/node_modules",
+    "**/__pycache__"
+    ]
+
+
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
